@@ -19,6 +19,7 @@ class game():
         self.waste_group = pygame.sprite.RenderPlain()
         self.rotate = 0
         self.uno = 0
+        self.ai_deck = []
         pygame.display.update()
 
     def text_format(self, message, textFont, textSize, textColor):
@@ -27,17 +28,26 @@ class game():
         return newText
 
     def set_deck(self):
-        for color_idx in range(1,5):
-            card = self.color[color_idx]
-            now_card = card + '_0'
-            self.card_deck.append(now_card)
-            for card_number in range(1, 10):
-                now_card = card + "_" + str(card_number)
-                iterate = 0
-                while iterate != 8:
-                    self.card_deck.append(now_card)
-                    iterate += 1
+        colors = ['RED', 'YELLOW', 'GREEN', 'BLUE']
+        numbers = list(range(10))
+
+        card_set = set()
+
+        for color in colors:
+            # Add number 0 card
+            card_set.add(color + '_0')
+
+            # Add numbered cards 1 to 9 twice (total 2 * 9 = 18 cards)
+            for _ in range(2):
+                for number in numbers[1:]:
+                    card_set.add(f"{color}_{number}")
+
+        # Shuffle the unique cards
+        self.card_deck = list(card_set)
         random.shuffle(self.card_deck)
+
+        # Limit the deck to 40 cards
+        self.card_deck = self.card_deck[:40]
 
     def set_window(self):
         self.set_deck()
@@ -187,6 +197,7 @@ class game():
 
     def give_card(self, card_num):
         dest_player = self.get_next_player(self.now_turn)
+
         for i in range(0, card_num):
             self.get_from_deck(dest_player)
 
@@ -203,12 +214,28 @@ class game():
             close_text = self.text_format("YOU WIN!", 'Berlin Sans FB', 80, (255,51,0))
             press_text = self.text_format("Press SPACE to REPLAY", 'Berlin Sans FB', 35, (255,51,0))
             self.screen.blit(close_text, (230, 220))
-        else:
+        elif len(self.ai_deck) == 0:
             lose.play()
-            close_text = self.text_format("YOU LOSE!", 'Berlin Sans FB', 80, (255,51,0))
-            press_text = self.text_format("Press SPACE to REPLAY", 'Berlin Sans FB', 35, (255,51,0))
+            close_text = self.text_format("YOU LOSE!", 'Berlin Sans FB', 80, (255, 51, 0))
+            press_text = self.text_format("Press SPACE to REPLAY", 'Berlin Sans FB', 35, (255, 51, 0))
             self.screen.blit(close_text, (212, 220))
-        
+        elif len(self.user_group) < len(self.ai_deck):
+            win.play()
+            close_text = self.text_format("YOU WIN - You have less cards!", 'Berlin Sans FB', 25, (255, 51, 0))
+            press_text = self.text_format("Press SPACE to REPLAY", 'Berlin Sans FB', 35, (255, 51, 0))
+            self.screen.blit(close_text, (230, 220))
+        elif len(self.user_group) > len(self.ai_deck):
+            lose.play()
+            close_text = self.text_format("YOU LOSE! - You have more cards!", 'Berlin Sans FB', 25, (255, 51, 0))
+            press_text = self.text_format("Press SPACE to REPLAY", 'Berlin Sans FB', 35, (255, 51, 0))
+            self.screen.blit(close_text, (212, 220))
+        elif len(self.user_group) == len(self.ai_deck):
+            win.play()
+            close_text = self.text_format("DRAW - You and PC have same cards!", 'Berlin Sans FB', 25, (255, 51, 0))
+            press_text = self.text_format("Press SPACE to REPLAY", 'Berlin Sans FB', 35, (255, 51, 0))
+            self.screen.blit(close_text, (230, 220))
+
+
         self.screen.blit(press_text, (228, 330))
         pygame.display.update()
         while True:
@@ -235,6 +262,10 @@ class game():
         self.now_turn = 0
         self.waste_card = []
         while True:
+
+            if len(self.card_deck) == 0:
+                self.restart()
+                return
             if len(self.user_group) ==0:
                 self.restart()
                 return
@@ -258,13 +289,8 @@ class game():
                 self.select_player(self.now_turn)
                 pygame.time.wait(700)
                 ai = AI.AI(2, self.player[1], self.waste_card)
-                if self.difficulty == 1:
-                    temp = ai.basicplay()
-                elif self.difficulty == 2:
-                    next = self.get_next_player(self.now_turn)
-                    if next == 0 : next_ = self.user_group
-                    else : next_ = self.player[next]
-                    temp = ai.advancedplay(next_)
+                self.ai_deck = ai.playerdeck
+                temp = ai.basicplay()
                 if temp == 0 or temp == None:
                     self.get_from_deck(1)
                     self.printwindow()
@@ -329,6 +355,7 @@ class game():
         pygame.init()
         deck = pygame.mixer.Sound('./sound/from_deck.wav')
         item = self.card_deck.pop(0)
+        print('deck', self.card_deck)
         deck.play()
         if now_turn == 0:
             temp = loadcard.Card(item, (400, 300))
